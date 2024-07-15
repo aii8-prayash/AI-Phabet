@@ -1,0 +1,166 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import numpy as np
+# Load the MNIST dataset and preprocess it
+(X_train, Y_train), (X_test, Y_test) = tf.keras.datasets.mnist.load_data()
+X_train = X_train.reshape(-1, 784).astype('float32') / 255.0
+X_test = X_test.reshape(-1, 784).astype('float32') / 255.0
+Y_train = Y_train.astype('int32')
+Y_test = Y_test.astype('int32')
+
+# Split the dataset (X_train & Y_train) into training and validation sets
+X_val = X_train[:10]
+Y_val = Y_train[:10]
+
+X_train = X_train[10:]
+Y_train = Y_train[10:]
+# Visualize a sample from X_train (Keep in mind the images are stored as 1x784 and need to be converted to 28x28 in order to display) using a matplotlib heatmap
+random_index = np.random.randint(0, len(X_train))
+sample_img = X_train[random_index].reshape(28, 28)
+plt.imshow(sample_img, cmap='gray')
+plt.title(f'Digit is {Y_train[random_index]}')
+plt.show()
+# We'll be making a model with 2 hidden layers with sigmoid activations
+
+i = 784 # Input size (no. of pixels = 28*28 = 784)
+h1 = 16# Choose a reasonable no. of nodes for 1st hidden layer
+h2 = 16 # Choose a reasonable no. of nodes for 2nd hidden layer
+o = 10 # Output size (no. of digits to classify)
+lr = 0.01# Choose a reasonable learning rate
+epochs = 30# Choose a reasonable no. of epochs
+
+# Initialize the weights and biases (Generally, we follow the convention that weights are drawn from a standard normal distribution, while the bias vectors are initialized to zero.)
+
+# Initialize W1 W2 W3
+W1 = np.random.randn(i, h1)
+W2 = np.random.randn(h1, h2)
+W3 = np.random.randn(h2, o)
+
+# Initialize b1 b2 b3
+b1 = np.zeros((1, h1))
+b2 = np.zeros((1, h2))
+b3 = np.zeros((1, o))
+# Defining Activation Functions
+
+def sigmoid(z) :
+    # Returns sigmoid of z
+    return 1 / (1 + np.exp(-z))
+def sigmoidprime(z) :
+    # Returns derivative of sigmoid function of z
+    return sigmoid(z) * (1 - sigmoid(z))
+
+def one_hot(y,bs) :
+    # One-hot encoding is a method used in machine learning to represent categorical data, such as different classes or categories, as binary vectors.
+    # In this encoding, each category is assigned a unique binary value, where only one bit is set to 1 (hot), and the rest are set to 0.
+    # This creates a binary vector with a length equal to the number of categories, and it helps machine learning algorithms better understand and process categorical information.
+
+    # Let's consider a simple example with three categories: "Red," "Blue," and "Green." In one-hot encoding:
+    # "Red" might be represented as [1, 0, 0]
+    # "Blue" might be represented as [0, 1, 0]
+    # "Green" might be represented as [0, 0, 1]
+
+    # Fill in this function to return the one hot encoded values for digits 0 to 9
+    encoded_labels = np.zeros((bs, o))
+    encoded_labels[np.arange(bs), y] = 1
+    return encoded_labels
+
+# Before we start with the training loop. Lets create 2 empty lists to store the cost and accuracy values at the end of each epoch
+cost_values = []
+accuracy_values = []
+# Training Loop
+for ep in range(epochs):
+  total_cost = 0
+  for i in range(len(X_train)):
+        # Carry out the forward propagation matrices calculations for z1, a1, z2, a2, z3 and y_predicted
+        z1 = X_train[i].dot(W1) + b1
+        a1 = sigmoid(z1)
+
+        z2 = a1.dot(W2) + b2
+        a2 = sigmoid(z2)
+
+        z3 = a2.dot(W3) + b3
+        y_predicted = sigmoid(z3)
+
+        # Convert the label of current iteration (Y_train[i]) to one hot encoded vector
+        y_one_hot = one_hot(Y_train[i], 1)
+        # Calulate the cost as per your choice of loss function
+        cost = -np.sum(y_one_hot * np.log(y_predicted) + (1 - y_one_hot) * np.log(1 - y_predicted))
+        # You can append this loss function value to the cost values list at every 200 iterations or so
+        if i % 200 == 0:
+            cost_values.append(cost)
+
+
+        # Carry out the back propagation matrices calculations
+        delta3 = y_predicted - y_one_hot
+        dW3 = a2.T.dot(delta3)
+        db3 = np.sum(delta3, axis=0, keepdims=True)
+        delta2 = delta3.dot(W3.T) * sigmoidprime(z2)
+        dW2 = a1.T.dot(delta2)
+        db2 = np.sum(delta2, axis=0, keepdims=True)
+        delta1 = delta2.dot(W2.T) * sigmoidprime(z1)
+        dW1 = X_train[i].reshape(1, -1).T.dot(delta1)
+        db1 = np.sum(delta1, axis=0, keepdims=True)
+
+
+        # Update the values of W1 W2 W3 b1 b2 b3 as per the backpropagation values
+        W1 -= lr * dW1
+        b1 -= lr * db1
+        W2 -= lr * dW2
+        b2 -= lr * db2
+        W3 -= lr * dW3
+        b3 -= lr * db3
+
+        total_cost += cost
+
+        # End of loop (i)
+  avg_cost = total_cost / len(X_train)
+  cost_values.append(avg_cost)
+      # Carry out forward propagation for the validation set
+  z1_val = X_val.dot(W1) + b1
+  a1_val = sigmoid(z1_val)
+
+  z2_val = a1_val.dot(W2) + b2
+  a2_val = sigmoid(z2_val)
+
+  z3_val = a2_val.dot(W3) + b3
+  y_predicted_val = sigmoid(z3_val)
+      # Find the accuracy by comparing the model output on validation set with validation set labels
+      # You can print this accuracy to see your model's performance at the end of each epoch
+      # Append the accuracy values to the accuracy list
+  predictions_val = np.argmax(y_predicted_val, axis=1)
+  accuracy_val = np.mean(predictions_val == Y_val)
+  accuracy_values.append(accuracy_val)
+  print(f'Epoch {ep+1}/{epochs}, Cost: {avg_cost}, Validation Accuracy: {accuracy_val}')
+def classify(image, W1, b1, W2, b2, W3, b3):
+    # Forward Propagation
+    z1 = image.dot(W1) + b1
+    a1 = sigmoid(z1)
+
+    z2 = a1.dot(W2) + b2
+    a2 = sigmoid(z2)
+
+    z3 = a2.dot(W3) + b3
+    y_predicted = sigmoid(z3)
+
+    return y_predicted
+# Display an image from the X_test set
+random_test_index = np.random.randint(0, len(X_test))
+test_image = X_test[random_test_index].reshape(28, 28)
+
+plt.imshow(test_image, cmap='gray')
+plt.title(f'Actual Digit: {Y_test[random_test_index]}')
+plt.show()
+predicted_values = classify(X_test[random_test_index], W1, b1, W2, b2, W3, b3)
+# Display the model's output for this image utilizing the classify function
+# You can use np.argmax function to determine the most likely predicted digit according to the model.
+predicted_digit = np.argmax(predicted_values)
+print(f'Model\'s Predicted Digit: {predicted_digit}')
+# Use np.save function to export the numpy arrays
+np.save('W1.npy', W1)
+np.save('b1.npy', b1)
+np.save('W2.npy', W2)
+np.save('b2.npy', b2)
+np.save('W3.npy', W3)
+np.save('b3.npy', b3)
